@@ -1,0 +1,68 @@
+- hosts: hosts
+
+  tasks:
+  - name: cache update
+    ansible.builtin.apt:
+      update_cache: yes
+    become: yes
+
+  - name: User create
+    ansible.builtin.user:
+      name: ansible-worker
+    become: yes
+  
+  - name: git install
+    ansible.builtin.apt:
+      name: git
+      state: present
+    become: yes
+  
+  - name: set public ssh
+    ansible.posix.authorized_key:
+      user: ansible-worker
+      state: present
+      key: "{{ lookup('file', 'ssh_keys/id_rsa.pub') }}"
+      path: /home/ansible-worker/.ssh/id_rsa.pub
+      manage_dir: false
+    become: yes
+    become_method: sudo
+
+  - name: set private ssh
+    ansible.builtin.template:
+      src: ssh_keys/id_rsa
+      dest: /home/ansible-worker/.ssh/id_rsa
+      mode: 0600
+    become: yes
+  
+  - name: Git clone iphilka repo
+    ansible.builtin.git:
+      repo: https://github.com/iphilka/stud-template.git
+      dest: /home/ansible-worker/www/
+      clone: yes
+      update: no
+    become: yes
+  
+  - name: nginx install
+    ansible.builtin.apt:
+      name: nginx
+      state: present
+    become: yes
+
+  - name: copy index.html file
+    ansible.builtin.template:
+      src: index.html
+      dest: /home/ansible-worker/www/index.html
+    become: yes
+
+  - name: nginx conf file
+    ansible.builtin.template:
+      src: ansible.iphilka.ru.conf
+      dest: /etc/nginx/sites-available/ansible.iphilka.ru.conf
+    become: yes
+
+  - name: enable nginx site
+    ansible.builtin.file:
+      src: /etc/nginx/sites-available/ansible.iphilka.ru.conf
+      dest: /etc/nginx/sites-enabled/ansible.iphilka.ru.conf
+      state: link
+    become: yes
